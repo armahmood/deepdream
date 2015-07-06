@@ -15,14 +15,6 @@ print(sys.path)
 
 import caffe
 
-def showarray(a, fmt='jpeg'):
-    a = np.uint8(np.clip(a, 0, 255))
-    f = StringIO()
-    PIL.Image.fromarray(a).save(f, fmt)
-    display(Image(data=f.getvalue()))
-    ppl.imshow(a)
-
-
 model_path = expanduser("~")+'/caffe/models/bvlc_googlenet/' # substitute your path here
 net_fn   = model_path + 'deploy.prototxt'
 param_fn = model_path + 'bvlc_googlenet.caffemodel'
@@ -67,7 +59,8 @@ def make_step(net, step_size=1.5, end='inception_4c/output', jitter=32, clip=Tru
         src.data[:] = np.clip(src.data, -bias, 255-bias)
 
 
-def deepdream(net, base_img, iter_n=10, octave_n=4, octave_scale=1.4, end='inception_4c/output', clip=True, saveim=False, **step_params):
+def deepdream(net, base_img, iter_n=10, octave_n=4, octave_scale=1.4, end='inception_4c/output', clip=True,
+              saveim=False, savepath="./", **step_params):
     # prepare base images for all octaves
     octaves = [preprocess(net, base_img)]
     for i in xrange(octave_n-1):
@@ -75,7 +68,6 @@ def deepdream(net, base_img, iter_n=10, octave_n=4, octave_scale=1.4, end='incep
     
     src = net.blobs['data']
     detail = np.zeros_like(octaves[-1]) # allocate image for network-produced details
-    imgs = []
     imindex = 1
     for octave, octave_base in enumerate(octaves[::-1]):
         h, w = octave_base.shape[-2:]
@@ -93,18 +85,17 @@ def deepdream(net, base_img, iter_n=10, octave_n=4, octave_scale=1.4, end='incep
             vis = deprocess(net, src.data[0])
             if not clip: # adjust image contrast if clipping is disabled
                 vis = vis*(255.0/np.percentile(vis, 99.98))
-            showarray(vis)
-            if saveim: ppl.savefig('fig'+str(imindex)+'.png')
-            imindex+=1
+            if octave==len(octaves[::-1])-1 and saveim:
+                PIL.Image.fromarray(np.uint8(vis)).save(savepath+"fig"+str(imindex)+".jpg")
+                imindex+=1
             print octave, i, end, vis.shape
             clear_output(wait=True)
-            imgs.append(vis)#deprocess(net, src.data[0]))
         # extract details produced on the current octave
         detail = src.data[0]-octave_base
     # returning the resulting image
     return deprocess(net, src.data[0])
 
-img = np.float32(PIL.Image.open('sky1024px.jpg'))
+#img = np.float32(PIL.Image.open('sky1024px.jpg'))
 
 # imgs=deepdream(net, img, iter_n=10)
 
